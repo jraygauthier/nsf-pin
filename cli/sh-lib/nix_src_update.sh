@@ -131,7 +131,8 @@ _update_nix_src_json_using_builtin_fetchgit() {
   # specified rev belong to the specified ref.
   local fetch_rev
   if ! fetch_rev="$(_get_optional_yaml_or_json_field_from_file "$in_src" '.rev')"; then
-    fetch_rev="refs/heads/$ref"
+    fetch_rev=$ref
+    [[ $ref == refs/* ]] || fetch_rev="refs/heads/$fetch_rev"
   fi
 
   # shellcheck disable=SC2034
@@ -196,12 +197,14 @@ _get_github_rev_from_ref() {
   local owner="${1?}"
   local repo="${2?}"
   local ref="${3?}"
+  [[ $ref == refs/* ]] || ref="refs/heads/$ref"
+
   local url="https://github.com/${owner}/${repo}.git"
   local matching_ls_remote_lns
   if ! matching_ls_remote_lns="$(\
       git ls-remote --symref "$url" \
-        | grep -F "refs/heads/${ref}" \
-        | grep -E "refs/heads/${ref}$")"; then
+        | grep -F "${ref}" \
+        | grep -E "${ref}$")"; then
     1>&2 echo "ERROR: ${FUNCNAME[0]}: ref '$ref' not found in repository at url '$url'."
     return 1
   fi
@@ -240,7 +243,7 @@ _update_nix_src_json_using_fetch_from_github() {
 
   # echo "nix-prefetch-github version: $(nix-prefetch-github --version)"
 
-  local prefetch_args=( "--no-prefetch" "--rev" "$fetch_rev" "$owner" "$repo" )
+  local prefetch_args=( "--rev" "$fetch_rev" "$owner" "$repo" )
   printf "$ nix-prefetch-github %s\n" "$(print_cmd_args "${prefetch_args[@]}")"
 
   local prefetch_stdout
