@@ -240,7 +240,14 @@ _update_nix_src_json_using_fetch_from_github() {
 
   # echo "nix-prefetch-github version: $(nix-prefetch-github --version)"
 
-  local prefetch_args=( "--no-prefetch" "--rev" "$fetch_rev" "$owner" "$repo" )
+  local prefetch_args=( \
+    "--no-deep-clone" \
+    "--no-fetch-submodules" \
+    "--no-leave-dot-git" \
+    "--rev" "$fetch_rev" \
+    "$owner" \
+    "$repo" \
+  )
   printf "$ nix-prefetch-github %s\n" "$(print_cmd_args "${prefetch_args[@]}")"
 
   local prefetch_stdout
@@ -250,7 +257,7 @@ _update_nix_src_json_using_fetch_from_github() {
     # We print stdout as part of the error message. This is because of
     # 'seppeljordan/nix-prefetch-github/issues/23'.
     local error_code="$?"
-    printf "ERROR(%s): nix-prefetch-github failed with stdout: ''\n%s\n''\n" \
+    1>&2 printf "ERROR(%s): nix-prefetch-github failed with stdout: ''\n%s\n''\n" \
       "$error_code" "$prefetch_stdout"
     return 1
   fi
@@ -258,12 +265,15 @@ _update_nix_src_json_using_fetch_from_github() {
   local rev
   rev="$(_get_json_field_from_nix_prefetch_github_output "$prefetch_stdout" '.rev')" || \
     return 1
-  local sha256
-  sha256="$(_get_json_field_from_nix_prefetch_github_output "$prefetch_stdout" '.sha256')" || \
+  local hash
+  hash="$(_get_json_field_from_nix_prefetch_github_output "$prefetch_stdout" '.hash')" || \
     return 1
 
+  local sha256
+  sha256="$(nix-hash --to-base32 "$hash")"
+
   # echo "rev='$rev'"
-  # echo "sha256='$sha256'"
+  # echo "hash='$hash'"
 
   local jq_out_expr
   # shellcheck disable=SC2016
